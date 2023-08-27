@@ -2,5 +2,9 @@
 
 public interface IDamageable
 {
-    public void TakeDamage(int dmg, GameObject source);
+    public float Hp { get; }
+
+    public void TakeDamage(GameObject source, int dmg);
+
+    public void Dead();
 }
