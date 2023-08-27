@@ -1,20 +1,20 @@
-using System;
 using Cinemachine;
 using UnityEngine;
 using UnityEngine.AI;
 
 [RequireComponent(typeof(CharacterMovement))]
-[RequireComponent(typeof(NavMeshAgent))]
 [RequireComponent(typeof(Rigidbody))]
-public class Player : MonoBehaviour, IDamageable
+public class Player : BaseCharacter, IDamageable, ITemporable
 {
-    public float Hp { get; }
+    public float Hp { get; set; }
+    public float LifeTime { get; set; }
+
+    [SerializeField] private BaseAttackController attackController;
     
     [SerializeField] private CinemachineVirtualCamera virtualCamera;
 
     private CharacterMovement _characterMovement;
-    private NavMeshAgent _navMeshAgent;
-    private Rigidbody _rb;
+    
     private int _blockInputCount = 0;
     private bool _isTakeDamage;
 
@@ -31,12 +31,26 @@ public class Player : MonoBehaviour, IDamageable
             Dead();
         }
     }
+    
+    public void AddLifetime(float time)
+    {
+        LifeTime += time;
+    }
+
+    public void RemoveLifetime(float time)
+    {
+        LifeTime -= time;
+        if (LifeTime <= 0)
+        {
+            Dead();
+        }
+    }
 
     public void Dead()
     {
         BlockInput();
-        GetComponent<Collider>().enabled = false;
-        _navMeshAgent.enabled = false;
+        playerRenderer.material.color = Color.grey;
+        NavMeshAgent.enabled = false;
     }
 
     private void Awake()
@@ -44,13 +58,13 @@ public class Player : MonoBehaviour, IDamageable
         SetupBaseComponent();
         
         virtualCamera.Follow = transform;
-
+        LifeTime = 5f;
         
         void SetupBaseComponent()
         {
             _characterMovement = GetComponent<CharacterMovement>();
-            _navMeshAgent = GetComponent<NavMeshAgent>();
-            _rb = GetComponent<Rigidbody>();
+            NavMeshAgent = GetComponent<NavMeshAgent>();
+            Rb = GetComponent<Rigidbody>();
             _plane = new Plane(Vector3.up, Vector3.zero);
             _camera = Camera.main;
         }
@@ -61,10 +75,14 @@ public class Player : MonoBehaviour, IDamageable
         if (_blockInputCount != 0) return;
         
         Move();
+        Attack();
+        RemoveLifetime(Time.deltaTime);
     }
 
     private void LateUpdate()
     {
+        if (_blockInputCount != 0) return;
+
         RotatePlayer(GetMouseAngle());
     }
 
@@ -76,7 +94,6 @@ public class Player : MonoBehaviour, IDamageable
     private Vector3 GetMouseAngle()
     {
         var rayCam = _camera.ScreenPointToRay(Input.mousePosition);
-        //_plane = new Plane(Vector3.up, transform.position);
         if (_plane.Raycast(rayCam, out var enter))
         {
             var hitPoint = rayCam.GetPoint(enter);
@@ -89,7 +106,7 @@ public class Player : MonoBehaviour, IDamageable
 
     private void Move()
     {
-        _characterMovement.MovementOnDirection(GetDirectionMovement(), _navMeshAgent);
+        _characterMovement.MovementOnDirection(GetDirectionMovement(), NavMeshAgent);
         
         Vector3 GetDirectionMovement()
         {
@@ -98,6 +115,13 @@ public class Player : MonoBehaviour, IDamageable
             var moveDir = new Vector3(xRaw, 0, zRaw);
             return moveDir;
         }
+    }
+
+    private void Attack()
+    {
+        if (!Input.GetMouseButtonDown(0))
+            return;
+        AddLifetime(5f);
     }
 
     private void BlockInput()
